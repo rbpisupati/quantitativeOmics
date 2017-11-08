@@ -9,7 +9,9 @@ import h5py
 import sys
 import logging
 import os.path
+import csv
 from pygwas.core import genotype
+from pygwas.core import kinship
 
 
 
@@ -20,9 +22,16 @@ def die(msg):
 
 def readPhenoData(phenoFile, geno):
     # use pandas to read the file
-    pheno = pd.read_table(phenoFile)
+    sniffer = csv.Sniffer()
+    tpheno = open(phenoFile, 'rb')
+    ifheader = sniffer.has_header(tpheno.read(4096))
+    sniff_pheno = sniffer.sniff(tpheno.read(4096))
+    if ifheader:
+        pheno = pd.read_table(phenoFile, header = 0, sep=sniff_pheno.delimiter)
+    else:
+        raise NotImplementedError
     reqPheno, reqAccsInd = getCommonPheno(pheno, geno)
-    return reqPheno, reqAccsInd
+    return(reqPheno, reqAccsInd)
 
 def getCommonPheno(pheno, geno):
     # taking one temperature into account
@@ -30,14 +39,21 @@ def getCommonPheno(pheno, geno):
     reqPheno = []
     reqAccsInd = []
     reqAccs = []
+    pheno_accs = np.array(pheno['acc'], dtype="string")
     for i in range(len(accs_1001g)):
-        ind = np.where(pheno['acc']  == accs_1001g[i] + "_10C" )[0]
-        if len(ind) > 0:
+        ind = np.where(pheno_accs == accs_1001g[i])[0]
+        if len(ind) > 1:
+            reqPheno.append(np.mean(pheno['pheno'][ind]))
+            reqAccsInd.append(i)
+            reqAccs.append(accs_1001g[i])
+        elif len(ind) == 1:
             reqPheno.append(pheno['pheno'][ind[0]])
             reqAccsInd.append(i)
             reqAccs.append(accs_1001g[i])
     reqPheno = np.array(reqPheno)
-    return reqPheno, reqAccsInd
+    if len(reqPheno) == 0:
+        raise NotImplementedError
+    return(reqPheno, reqAccsInd)
 
 H5_EXT = ['.hdf5', '.h5', 'h5py']
 
@@ -45,15 +61,19 @@ def readGenotype(genoFile):
     fileName,fileType = os.path.splitext(genoFile)
     if fileType in H5_EXT:
         g = genotype.load_hdf5_genotype_data(genoFile)
-        return g
+        return(g)
     else:
-        die("For now provide hdf5 to load in pygwas")
+        raise NotImplementedError
 
 def readGenotype_acc(genoFile):
     # only for ending in hdf5
     fileName,fileType = os.path.splitext(genoFile)
     if os.path.isfile(fileName + '.acc' + fileType):
         g_acc = genotype.load_hdf5_genotype_data(fileName + '.acc' + fileType)
-        return g_acc
+        return(g_acc)
     else:
-        return None
+        return(None)
+
+def readKinship(kinFile, reqAccsInd):
+    kinship1001g = kinship.load_kinship_from_file(kinFile)
+    return(kinship1001g['k'][reqAccsInd,:][:,reqAccsInd])

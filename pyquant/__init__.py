@@ -9,6 +9,7 @@
 import os
 import argparse
 import sys
+from pyquant.genopheno import lmm
 from pyquant.genopheno import vca
 import logging, logging.config
 
@@ -37,6 +38,7 @@ def get_options(program_license,program_version_message):
     inOptions = argparse.ArgumentParser(description=program_license)
     inOptions.add_argument('-V', '--version', action='version', version=program_version_message)
     subparsers = inOptions.add_subparsers(title='subcommands',description='Choose a command to run',help='Following commands are supported')
+
     vca_parser = subparsers.add_parser('vca_st', help="variance component analysis, single trait using limix")
     vca_parser.add_argument("-p", "--phenoFile", dest="phenoFile", help="File for phenotypes")
     vca_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
@@ -44,6 +46,7 @@ def get_options(program_license,program_version_message):
     vca_parser.add_argument("-b", "--cisregion", dest="cisregion", help="cis region, Ex. Chr1,1,100")
     vca_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
     vca_parser.set_defaults(func=vca_singletrait)
+
     eqtl_parser = subparsers.add_parser('eqtl_st', help="Single trait eQTL mapping")
     eqtl_parser.add_argument("-p", "--phenoFile", dest="phenoFile", help="File for phenotypes")
     eqtl_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
@@ -51,6 +54,13 @@ def get_options(program_license,program_version_message):
     eqtl_parser.add_argument("-b", "--cisregion", dest="cisregion", help="cis region, Ex. Chr1,1,100")
     eqtl_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
     eqtl_parser.set_defaults(func=eqtl_singletrait)
+
+    lmm_parser = subparsers.add_parser('lmm_st', help="linear mixed model for single trait")
+    lmm_parser.add_argument("-p", "--phenoFile", dest="phenoFile", help="File for phenotypes")
+    lmm_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
+    lmm_parser.add_argument("-k", "--kinFile", dest="kinFile", help="kinship file based on snps", default = None)
+    lmm_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
+    lmm_parser.set_defaults(func=lmm_singletrait)
 
     return inOptions
 
@@ -72,6 +82,9 @@ def eqtl_singletrait(args):
     checkGenoPhenoFiles(args)
     vca.eqtl_st(args['phenoFile'], args['genoFile'], args['kinFile'])
 
+def lmm_singletrait(args):
+    checkGenoPhenoFiles(args)
+    lmm.lmm_singleTrai(args['phenoFile'], args['genoFile'], args['kinFile'])
 
 def main():
   ''' Command line options '''
