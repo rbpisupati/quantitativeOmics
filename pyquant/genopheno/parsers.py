@@ -75,5 +75,5 @@ def readGenotype_acc(genoFile):
         return(None)
 
 def readKinship(kinFile, reqAccsInd):
-    kinship1001g = kinship.load_kinship_from_file(kinFile)
-    return(kinship1001g['k'][reqAccsInd,:][:,reqAccsInd])
+    kinship1001g = h5py.File(kinFile)
+    return(kinship1001g['kinship'][reqAccsInd,:][:,reqAccsInd])
