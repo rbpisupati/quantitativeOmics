@@ -58,7 +58,9 @@ def get_options(program_license,program_version_message):
     lmm_parser = subparsers.add_parser('lmm_st', help="linear mixed model for single trait")
     lmm_parser.add_argument("-p", "--phenoFile", dest="phenoFile", help="File for phenotypes")
     lmm_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
+    lmm_parser.add_argument("-t", "--test", dest="test", help="test", default = "lrt")
     lmm_parser.add_argument("-k", "--kinFile", dest="kinFile", help="kinship file based on snps", default = None)
+    lmm_parser.add_argument("-s", "--transformation", dest="transformation", help="transformation for the phenotypes", default = "most_normal")
     lmm_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
     lmm_parser.set_defaults(func=lmm_singletrait)
 
@@ -84,7 +86,7 @@ def eqtl_singletrait(args):
 
 def lmm_singletrait(args):
     checkGenoPhenoFiles(args)
-    lmm.lmm_singleTrai(args['phenoFile'], args['genoFile'], args['kinFile'])
+    lmm.lmm_singleTrai(args['phenoFile'], args['genoFile'], args['kinFile'], args['test'], args['transformation'])
 
 def main():
   ''' Command line options '''
