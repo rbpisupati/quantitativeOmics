@@ -25,6 +25,7 @@ def readPhenoData(phenoFile, geno):
     sniffer = csv.Sniffer()
     tpheno = open(phenoFile, 'rb')
     ifheader = sniffer.has_header(tpheno.read(4096))
+    tpheno.seek(0)
     sniff_pheno = sniffer.sniff(tpheno.read(4096))
     if ifheader:
         pheno = pd.read_table(phenoFile, header = 0, sep=sniff_pheno.delimiter)

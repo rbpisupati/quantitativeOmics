@@ -13,12 +13,13 @@ from pygwas.core import phenotype
 import matplotlib.pyplot as plt
 
 from limix.qtl import qtl_test_lmm
+from limix.plot import qqplot
 
 log = logging.getLogger(__name__)
 
-def run_lmm_st(geno, reqPheno, reqKinship, reqAccsInd):
+def run_lmm_st(geno, reqPheno, reqKinship, reqAccsInd, test):
     for snp in geno.get_snps_iterator(is_chunked=True):
-        lmm_chunk = qtl_test_lmm(np.array(snp[:,reqAccsInd], dtype=int).T, reqPheno, reqKinship)
+        lmm_chunk = qtl_test_lmm(np.array(snp[:,reqAccsInd], dtype=int).T, reqPheno, reqKinship, test=test)
         yield(lmm_chunk)
 
 chunk_size = 1000
@@ -31,8 +32,8 @@ def lmm_singleTrai(phenoFile, genoFile, kinFile, outFile, transformation = "None
     log.info("loading phenotype file")
     reqPheno, reqAccsInd = parsers.readPhenoData(phenoFile, geno)
     phenos = phenotype.Phenotype(geno.accessions[reqAccsInd], reqPheno, None)
-    phenos.transform(transformation)
-    import ipdb; ipdb.set_trace()
+    if transformation is not None:
+        phenos.transform(transformation)
     log.info("loading kinship file")
     reqKinship = parsers.readKinship(kinFile, reqAccsInd)
     log.info("done")
@@ -47,7 +48,7 @@ def lmm_singleTrai(phenoFile, genoFile, kinFile, outFile, transformation = "None
     lmm_effsize = h5file.create_dataset('beta_snp', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
     lmm_efferr = h5file.create_dataset('beta_snp_ste', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
     mafs = h5file.create_dataset('maf', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
-    lmm = run_lmm_st(geno, phenos.values, reqKinship, reqAccsInd)
+    lmm = run_lmm_st(geno, np.array(phenos.values), reqKinship, reqAccsInd, test)
     index = 0
     for snp in geno.get_snps_iterator(is_chunked=True):
         lmm_chunk = next(lmm)
@@ -56,6 +57,11 @@ def lmm_singleTrai(phenoFile, genoFile, kinFile, outFile, transformation = "None
         lmm_efferr[index:index+chunk_size] = lmm_chunk.getBetaSNPste()[0]
         mafs[index:index+chunk_size] = np.mean(snp, axis=1)
         index = index + chunk_size
-        if divmod(index, chunk_size)[1] % 100 == 0:
+        if index % 50000 == 0:
             log.info("progress: %s positions" % index)
+    log.info("generating qqplot!")
+    get_plot = qqplot(np.array(lmm_pvals))
+    fig = get_plot.get_figure()
+    fig.savefig(outFile + ".qqplot.png")
     h5file.close()
+    log.info("finished")
