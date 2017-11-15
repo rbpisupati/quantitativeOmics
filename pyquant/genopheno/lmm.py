@@ -13,7 +13,7 @@ from pygwas.core import phenotype
 import matplotlib.pyplot as plt
 
 from limix.qtl import qtl_test_lmm
-from limix.plot import qqplot
+from . import plot
 
 log = logging.getLogger(__name__)
 
@@ -55,13 +55,11 @@ def lmm_singleTrai(phenoFile, genoFile, kinFile, outFile, transformation = "None
         lmm_pvals[index:index+chunk_size] = lmm_chunk.getPv()[0]
         lmm_effsize[index:index+chunk_size] = lmm_chunk.getBetaSNP()[0]
         lmm_efferr[index:index+chunk_size] = lmm_chunk.getBetaSNPste()[0]
-        mafs[index:index+chunk_size] = np.mean(snp, axis=1)
+        mafs[index:index+chunk_size] = np.mean(snp[:,reqAccsInd], axis=1)
         index = index + chunk_size
         if index % 50000 == 0:
             log.info("progress: %s positions" % index)
     log.info("generating qqplot!")
-    get_plot = qqplot(np.array(lmm_pvals))
-    fig = get_plot.get_figure()
-    fig.savefig(outFile + ".qqplot.png")
+    plot.qqplot(np.array(lmm_pvals), outFile + ".qqplot.png")
     h5file.close()
     log.info("finished")
