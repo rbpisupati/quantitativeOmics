@@ -22,6 +22,7 @@ def die(msg):
 
 def readPhenoData(phenoFile, geno):
     # use pandas to read the file
+    log.info("loading phenotype file")
     sniffer = csv.Sniffer()
     tpheno = open(phenoFile, 'rb')
     ifheader = sniffer.has_header(tpheno.read(4096))
@@ -61,6 +62,7 @@ H5_EXT = ['.hdf5', '.h5', 'h5py']
 def readGenotype(genoFile):
     fileName,fileType = os.path.splitext(genoFile)
     if fileType in H5_EXT:
+        log.info("loading genotype file")
         g = genotype.load_hdf5_genotype_data(genoFile)
         return(g)
     else:
@@ -76,5 +78,6 @@ def readGenotype_acc(genoFile):
         return(None)
 
 def readKinship(kinFile, reqAccsInd):
+    log.info("loading kinship file")
     kinship1001g = h5py.File(kinFile)
     return(kinship1001g['kinship'][reqAccsInd,:][:,reqAccsInd])
