@@ -1,0 +1,4 @@
+setup.pyc
+pyquant/*pyc
+pyquant/genopheno/*pyc
+quantOmics.egg-info

@@ -31,7 +31,8 @@ def readPhenoData(phenoFile, geno):
     if ifheader:
         pheno = pd.read_table(phenoFile, header = 0, sep=sniff_pheno.delimiter)
     else:
-        raise NotImplementedError
+        pheno = pd.read_table(phenoFile, header = None, sep=sniff_pheno.delimiter)
+    pheno.columns = np.array(['acc','pheno'])
     reqPheno, reqAccsInd = getCommonPheno(pheno, geno)
     return(reqPheno, reqAccsInd)
 
