@@ -44,6 +44,7 @@ def get_options(program_license,program_version_message):
     vca_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
     vca_parser.add_argument("-k", "--kinFile", dest="kinFile", help="kinship file based on snps", default = None)
     vca_parser.add_argument("-b", "--cisregion", dest="cisregion", help="cis region, Ex. Chr1,1,100")
+    vca_parser.add_argument("-s", "--transformation", dest="transformation", help="transformation for the phenotypes", default = None)
     vca_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
     vca_parser.set_defaults(func=vca_singletrait)
 
@@ -60,7 +61,8 @@ def get_options(program_license,program_version_message):
     lmm_parser.add_argument("-g", "--genoFile", dest="genoFile", help="snp data")
     lmm_parser.add_argument("-t", "--test", dest="test", help="test", default = "lrt")
     lmm_parser.add_argument("-k", "--kinFile", dest="kinFile", help="kinship file based on snps", default = None)
-    lmm_parser.add_argument("-s", "--transformation", dest="transformation", help="transformation for the phenotypes", default = "most_normal")
+    lmm_parser.add_argument("-b", "--pheno_type", dest="pheno_type", help="phenotype distribution, to run limix glmm, {'None', 'bernoulli', 'binomial', 'poisson'}", default = None)
+    lmm_parser.add_argument("-s", "--transformation", dest="transformation", help="transformation for the phenotypes", default = None)
     lmm_parser.add_argument("-o", "--outFile", dest="outFile", help="output file for pvalues")
     lmm_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
     lmm_parser.set_defaults(func=lmm_singletrait)
@@ -79,7 +81,7 @@ def checkGenoPhenoFiles(args):
 
 def vca_singletrait(args):
     checkGenoPhenoFiles(args)
-    vca.vca_st(args['phenoFile'], args['genoFile'], args['cisregion'], args['kinFile'])
+    vca.vca_st(args)
 
 def eqtl_singletrait(args):
     checkGenoPhenoFiles(args)
@@ -87,7 +89,7 @@ def eqtl_singletrait(args):
 
 def lmm_singletrait(args):
     checkGenoPhenoFiles(args)
-    lmm.lmm_singleTrai(args['phenoFile'], args['genoFile'], args['kinFile'], args['outFile'], args['transformation'], args['test'])
+    lmm.lmm_singleTrai(args)
 
 def main():
   ''' Command line options '''

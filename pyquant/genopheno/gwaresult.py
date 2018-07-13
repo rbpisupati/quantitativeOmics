@@ -60,11 +60,12 @@ class HDF5GWASRESULT(object):
 
     def calc_qvalues(self, transform_qvalues = True):
         if  "qvalues" not in self.__dict__.keys():
-            from limix.stats import fdr
+            import limix.stats as lims
             self.calc_maf_filter()
             pvals = self.__getattr__("pvalues", self.maf_filter_ix)
-            pvals[pvals == 0] = np.nan
-            self.qvalues, self.pi0 = fdr.qvalues(pvals, m = len(self.positions), return_pi0 = True )
+            filter_nans = np.where( ~np.isnan( pvals ) )[0]
+            self.qvalues = np.repeat(np.nan, len(self.maf_filter_ix))
+            self.qvalues[filter_nans], self.pi0 = lims.qvalues(pvals[filter_nans], m = len(self.positions), return_pi0 = True )
             if transform_qvalues:
                 self.logqval = transform(self.qvalues)
 

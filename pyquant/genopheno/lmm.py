@@ -5,7 +5,7 @@ import scipy.stats as st
 import h5py as h5
 import logging
 from . import parsers
-from pygwas.core import phenotype
+
 
 from . import plot
 
@@ -25,10 +25,16 @@ def get_bh_thres(pvals, fdr_thres=0.05):
     else:
         return(0)
 
-def run_lmm_st(geno, reqPheno, reqKinship, reqAccsInd, test):
+def run_lmm_st(inputs):
     from limix.qtl import qtl_test_lmm
-    for snp in geno.get_snps_iterator(is_chunked=True):
-        lmm_chunk = qtl_test_lmm(np.array(snp[:,reqAccsInd], dtype=int).T, reqPheno, reqKinship, test=test)
+    for snp in inputs.geno.get_snps_iterator(is_chunked=True):
+        lmm_chunk = qtl_test_lmm(np.array(snp[:,inputs.accinds], dtype=int).T, np.array(inputs.pheno.values), inputs.kin, test=inputs.test)
+        yield(lmm_chunk)
+
+def run_glmm_st(inputs):
+    from limix.qtl import qtl_test_glmm
+    for snp in inputs.geno.get_snps_iterator(is_chunked=True):
+        lmm_chunk = qtl_test_glmm(np.array(snp[:,inputs.accinds], dtype=int).T, np.array(inputs.pheno.values), lik = inputs.pheno_type, K = inputs.kin, test=inputs.test)
         yield(lmm_chunk)
 
 def getMaf(snp):
@@ -38,36 +44,37 @@ def getMaf(snp):
     return(np.minimum.reduce([alt_freq, ref_freq]))
 
 chunk_size = 1000
-def lmm_singleTrai(phenoFile, genoFile, kinFile, outFile, transformation = "None", test = "lrt", maf_thres = 0.05):
+def lmm_singleTrai(args, maf_thres = 0.05):
     """
     Linear mixed model, association studies
     """
-    geno = parsers.readGenotype(genoFile)
-    reqPheno, reqAccsInd = parsers.readPhenoData(phenoFile, geno)
-    phenos = phenotype.Phenotype(geno.accessions[reqAccsInd], reqPheno, None)
-    if transformation is not None:
-        phenos.transform(transformation)
-    reqKinship = parsers.readKinship(kinFile, reqAccsInd)
-    log.info("writing to file: %s" % outFile)
-    h5file = h5.File(outFile, 'w')
-    h5file.create_dataset('test', compression="gzip", data= "limix_lmm_" + test, shape=((1,)))
-    h5file.create_dataset('transformation', compression="gzip", data=phenos.transformation, shape=((1,)))
-    h5file.create_dataset('chromosomes', compression="gzip", data=np.array(geno.chromosomes, dtype="int8"), chunks = ((chunk_size,)), shape=(len(geno.positions),), dtype='int8')
-    h5file.create_dataset('positions', compression="gzip", data=geno.positions, chunks = ((chunk_size,)) , shape=(len(geno.positions),), dtype='int32')
-    h5file.create_dataset('chr_regions', compression="gzip", data=geno.chr_regions, shape=geno.chr_regions.shape, dtype='int')
-    h5file.create_dataset('chrs', compression="gzip", data=geno.chrs, shape=geno.chrs.shape)
-    lmm_pvals = h5file.create_dataset('pvalues', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan, dtype="float")
-    lmm_effsize = h5file.create_dataset('beta_snp', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
-    lmm_efferr = h5file.create_dataset('beta_snp_ste', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
-    mafs = h5file.create_dataset('maf', compression="gzip", chunks = ((chunk_size,)), shape=(len(geno.positions),), fillvalue=np.nan)
-    lmm = run_lmm_st(geno, np.array(phenos.values), reqKinship, reqAccsInd, test)
+    inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = args['pheno_type'], transform=args['transformation'], test=args['test'])
+    if inputs.pheno_type is None:
+        lmm = run_lmm_st(inputs)
+    else:
+        lmm = run_glmm_st(inputs)
+    log.info("writing to file: %s" % args['outFile'])
+    h5file = h5.File(args['outFile'], 'w')
+    if inputs.pheno_type is None:
+        h5file.create_dataset('test', compression="gzip", data= "lmm_" + inputs.test, shape=((1,)))
+    else:
+        h5file.create_dataset('test', compression="gzip", data= "glmm_" + inputs.pheno_type + inputs.test, shape=((1,)))
+    h5file.create_dataset('transformation', compression="gzip", data=inputs.pheno.transformation, shape=((1,)))
+    h5file.create_dataset('chromosomes', compression="gzip", data=np.array(inputs.geno.chromosomes, dtype="int8"), chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), dtype='int8')
+    h5file.create_dataset('positions', compression="gzip", data=inputs.geno.positions, chunks = ((chunk_size,)) , shape=(len(inputs.geno.positions),), dtype='int32')
+    h5file.create_dataset('chr_regions', compression="gzip", data=inputs.geno.chr_regions, shape=inputs.geno.chr_regions.shape, dtype='int')
+    h5file.create_dataset('chrs', compression="gzip", data=inputs.geno.chrs, shape=inputs.geno.chrs.shape)
+    lmm_pvals = h5file.create_dataset('pvalues', compression="gzip", chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), fillvalue=np.nan, dtype="float64")
+    lmm_effsize = h5file.create_dataset('beta_snp', compression="gzip", chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), fillvalue=np.nan, dtype="float")
+    lmm_efferr = h5file.create_dataset('beta_snp_ste', compression="gzip", chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), fillvalue=np.nan)
+    mafs = h5file.create_dataset('maf', compression="gzip", chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), fillvalue=np.nan)
     index = 0
-    for snp in geno.get_snps_iterator(is_chunked=True):
+    for snp in inputs.geno.get_snps_iterator(is_chunked=True):
         lmm_chunk = next(lmm)
         lmm_pvals[index:index+chunk_size] = lmm_chunk.getPv()[0]
         lmm_effsize[index:index+chunk_size] = lmm_chunk.getBetaSNP()[0]
         lmm_efferr[index:index+chunk_size] = lmm_chunk.getBetaSNPste()[0]
-        mafs[index:index+chunk_size] = getMaf(snp[:,reqAccsInd])
+        mafs[index:index+chunk_size] = getMaf(snp[:,inputs.accinds])
         index = index + chunk_size
         if index % 50000 == 0:
             log.info("progress: %s positions" % index)

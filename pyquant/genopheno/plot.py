@@ -64,3 +64,8 @@ def qqplot(pv, outPlot, color="#2c7fb8", label='unknown', alphaLevel=0.05):
     ax.yaxis.set_ticks_position('left')
     fig = ax.get_figure()
     fig.savefig(outPlot)
+
+
+def plt_manhattan(gwasresult, outPlot):
+    outPlot = None
+    return(outPlot)

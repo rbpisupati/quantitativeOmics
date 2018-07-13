@@ -1,7 +1,6 @@
 """
 Data parsers
-"""
-
+""""
 import numpy as np
 import scipy as st
 import pandas as pd
@@ -12,7 +11,6 @@ import os.path
 import csv
 from pygwas.core import genotype
 from pygwas.core import kinship
-
 
 
 log = logging.getLogger(__name__)
@@ -82,3 +80,26 @@ def readKinship(kinFile, reqAccsInd):
     log.info("loading kinship file")
     kinship1001g = h5py.File(kinFile)
     return(kinship1001g['kinship'][reqAccsInd,:][:,reqAccsInd])
+
+class InputsfurLimix(object):
+
+    def __init__(self, genoFile, phenoFile, kinFile, pheno_type, transform, test=None):
+        self.geno = readGenotype(genoFile)
+        self.pheno_type = pheno_type
+        self.test = test
+        self.pheno = self.parse_pheno(phenoFile, transform)
+        self.parseKinFile(kinFile)
+
+    def parse_pheno(self, phenoFile, transform):
+        from pygwas.core import phenotype
+        reqPheno, self.accinds = readPhenoData(phenoFile, self.geno)
+        pheno = phenotype.Phenotype(self.geno.accessions[self.accinds], reqPheno, None)
+        if transform is not None:
+            pheno.transform(transform)
+        return(pheno)
+
+    def parseKinFile(self, kinFile):
+        if kinFile is not None:
+            self.kin = readKinship(kinFile, self.accinds)
+        else:
+            self.kin = kinship.calc_kinship(self.geno)
