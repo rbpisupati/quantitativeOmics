@@ -33,14 +33,14 @@ def vca_st(args):
     # local global
     # packaged on 23.03.2017
     # cisregion = Chr1,1,1000
-    inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = args['pheno_type'], transform=args['transformation'])
+    inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = None, transform=args['transformation'])
     cispos_ix = parseBedPosition(inputs.geno, args['cisregion'])
     cisK = kinship.kinship_mat(inputs.geno.snps[cispos_ix,:][:,inputs.accinds])
-    vc = var.VarianceDecomposition(np.array(inputs.pheno.values), standardize=True)
+    vc = var.VarianceDecomposition(np.array(inputs.pheno.values), standardize=False)
     vc.addRandomEffect(K=cisK)
     vc.addRandomEffect(K=inputs.kin)
     vc.addRandomEffect(is_noise=True)
-    vc.optimize()
+    #vc.optimize()
     singleVar=vc.getVarianceComps(univariance = True)
     LM=vc.getLML()      #maximum likelihood of this model
     par = singleVar/np.sum(singleVar)*100

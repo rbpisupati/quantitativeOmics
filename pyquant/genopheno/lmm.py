@@ -34,7 +34,7 @@ def run_lmm_st(inputs):
 def run_glmm_st(inputs):
     from limix.qtl import qtl_test_glmm
     for snp in inputs.geno.get_snps_iterator(is_chunked=True):
-        lmm_chunk = qtl_test_glmm(np.array(snp[:,inputs.accinds], dtype=int).T, np.array(inputs.pheno.values), lik = inputs.pheno_type, K = inputs.kin, test=inputs.test)
+        lmm_chunk = qtl_test_glmm(np.array(snp[:,inputs.accinds], dtype=int).T, np.array(inputs.pheno.values), lik = inputs.pheno_type, K = inputs.kin, test=inputs.test, searchDelta=False)
         yield(lmm_chunk)
 
 def getMaf(snp):
@@ -60,6 +60,7 @@ def lmm_singleTrai(args, maf_thres = 0.05):
     else:
         h5file.create_dataset('test', compression="gzip", data= "glmm_" + inputs.pheno_type + inputs.test, shape=((1,)))
     h5file.create_dataset('transformation', compression="gzip", data=inputs.pheno.transformation, shape=((1,)))
+    h5file.create_dataset('pheno', compression="gzip", data= np.array(inputs.pheno.values), shape=((len(np.array(inputs.pheno.values)),)))
     h5file.create_dataset('chromosomes', compression="gzip", data=np.array(inputs.geno.chromosomes, dtype="int8"), chunks = ((chunk_size,)), shape=(len(inputs.geno.positions),), dtype='int8')
     h5file.create_dataset('positions', compression="gzip", data=inputs.geno.positions, chunks = ((chunk_size,)) , shape=(len(inputs.geno.positions),), dtype='int32')
     h5file.create_dataset('chr_regions', compression="gzip", data=inputs.geno.chr_regions, shape=inputs.geno.chr_regions.shape, dtype='int')
@@ -80,6 +81,6 @@ def lmm_singleTrai(args, maf_thres = 0.05):
             log.info("progress: %s positions" % index)
     #h5file.create_dataset('bhy_thres', compression="gzip", data=.transformation, shape=((1,)))
     log.info("generating qqplot!")
-    plot.qqplot(np.array(lmm_pvals)[np.where(np.array(mafs) >= maf_thres)[0]], outFile + ".qqplot.png")
+    plot.qqplot(np.array(lmm_pvals)[np.where(np.array(mafs) >= maf_thres)[0]], args['outFile'] + ".qqplot.png")
     h5file.close()
     log.info("finished")

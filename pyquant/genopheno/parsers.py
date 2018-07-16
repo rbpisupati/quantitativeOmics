@@ -1,6 +1,6 @@
 """
 Data parsers
-""""
+"""
 import numpy as np
 import scipy as st
 import pandas as pd
@@ -10,7 +10,6 @@ import logging
 import os.path
 import csv
 from pygwas.core import genotype
-from pygwas.core import kinship
 
 
 log = logging.getLogger(__name__)
@@ -102,4 +101,5 @@ class InputsfurLimix(object):
         if kinFile is not None:
             self.kin = readKinship(kinFile, self.accinds)
         else:
+            from . import kinship
             self.kin = kinship.calc_kinship(self.geno)
