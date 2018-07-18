@@ -1,6 +1,6 @@
 import scipy as sp
 import scipy.stats as st
-import sys
+import numpy as np
 import matplotlib.pylab as plt
 import logging
 
@@ -66,6 +66,22 @@ def qqplot(pv, outPlot, color="#2c7fb8", label='unknown', alphaLevel=0.05):
     fig.savefig(outPlot)
 
 
-def plt_manhattan(gwasresult, outPlot):
-    outPlot = None
-    return(outPlot)
+def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, plt_color="#d8b365", hist_color="#8c510a"):
+    ## given indices for x axis and y axis. this function plots peak matrix
+    # tair10 is a class function giving information about the genome eg. bshap.core.the1001g.ArabidopsisGenome
+    import seaborn as sns
+    sns.set(style="white", color_codes=True)
+    p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", color = plt_color, alpha = 0.1, joint_kws={"s": 8})
+    p.ax_marg_y.remove()
+    for i in range(len(tair10.chrs)):
+        p.ax_joint.plot( (tair10.chr_inds[i + 1] , tair10.chr_inds[i + 1]) , (1,tair10.chr_inds[-1]), '-', color = "gray")
+        p.ax_joint.plot( (1,tair10.chr_inds[-1]), (tair10.chr_inds[i + 1] , tair10.chr_inds[i + 1]), '-', color = "gray")
+        p.ax_joint.plot( (1,tair10.chr_inds[-1]), (tair10.chr_inds[i] + tair10.cetro_mid[i] , tair10.chr_inds[i] + tair10.cetro_mid[i]), ':k', color = "gray")
+        p.ax_joint.plot( (tair10.chr_inds[i] + tair10.cetro_mid[i] , tair10.chr_inds[i] + tair10.cetro_mid[i]), (1,tair10.chr_inds[-1]), ':k', color = "gray")
+    p.ax_joint.set_xticks( tair10.chr_inds[0:5] + (np.array(tair10.golden_chrlen)/2) )
+    p.ax_joint.set_xticklabels( tair10.chrs )
+    p.ax_joint.set_yticks( tair10.chr_inds[0:5] + (np.array(tair10.golden_chrlen)/2) )
+    p.ax_joint.set_yticklabels( tair10.chrs )
+    p.ax_joint.set_xlabel( "SNPs" )
+    p.ax_joint.set_ylabel( "genes" )
+    return(p)

@@ -2,3 +2,5 @@ setup.pyc
 pyquant/*pyc
 pyquant/genopheno/*pyc
 quantOmics.egg-info
+pyquant/__pycache__
+pyquant/genopheno/__pycache__
