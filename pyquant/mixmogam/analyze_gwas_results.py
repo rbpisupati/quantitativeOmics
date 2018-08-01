@@ -8,7 +8,7 @@ Email: bjarni.vilhjalmsson@gmail.com
 
 import scipy as sp
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import warnings
 import itertools as it
@@ -186,7 +186,7 @@ def plot_simple_qqplots_pvals(png_file_prefix, pvals_list, result_labels=None, l
                 line_colors=line_colors, num_dots=num_dots, title=title)
     simple_log_qqplot(log_qs, png_file_prefix + '_log_qq.png', quantile_labels=result_labels,
                 line_colors=line_colors, num_dots=num_dots, title=title, max_val=max_neg_log_val)
-    
+
 
 
 

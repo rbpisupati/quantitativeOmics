@@ -9,7 +9,7 @@ import sys
 try:
     import scipy as sp
     import matplotlib
-    matplotlib.use("Agg")
+    #matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 except Exception, err_str:
     print 'scipy/matplotlib is missing:', err_str
@@ -19,7 +19,7 @@ import warnings
 class phenotype_data:
     """
     A class that encapsulates phenotype values and provides basic functionality for these.
-    
+
     This is an update of an older class.
     """
 
@@ -82,7 +82,7 @@ class phenotype_data:
     def get_pseudo_heritability(self, pid, K):
         """
         Returns the REML estimate of the heritability.
-        
+
         methods: 'avg' (averages), 'repl' (replicates)
         """
         from scipy import stats
@@ -684,7 +684,7 @@ class phenotype_data:
     def get_correlations(self, pids=None):
         """
         Returns correlation matrix between traits
-        
+
         All traits are used if pids is left empty.
         """
         import bisect
@@ -712,7 +712,7 @@ class phenotype_data:
 
     def get_correlation(self, pid1, phed, pid2):
         """
-        Returns the correlation with another phenotype_data object 
+        Returns the correlation with another phenotype_data object
         """
         assert pid1 in self.phen_dict, 'phenotype ID %d missing in the self phed??' % pid1
         assert pid2 in phed.phen_dict, 'phenotype ID %d missing in the self phed??' % pid2
@@ -757,7 +757,7 @@ class phenotype_data:
 #            with_colorbar=True,):
 #        """
 #        Plot accessions on a map.
-#        
+#
 #        'color_by' is by default set to be the phenotype values.
 #        """
 #        import matplotlib
@@ -872,9 +872,9 @@ class phenotype_data:
     def plot_marker_box_plot(self, pid, marker, m_accessions, m_position=None, m_chromosome=None, plot_file=None,
                 plot_format='png', title=None, m_score=None):
         """
-        Plots a box plot for the given binary marker and phenotype. 
-        
-        Assumes the marker is integer based.        
+        Plots a box plot for the given binary marker and phenotype.
+
+        Assumes the marker is integer based.
         Assumes the marker and the phenotype accessions are aligned.
         """
         phen_vals = self.get_values(pid)
@@ -1032,9 +1032,9 @@ class phenotype_data:
 def parse_phenotype_file(file_name=None, file_object=None, delim=',', file_format='guess', with_db_ids=True):
     """
     Parses a phenotype file, and returns a new phenotype_data object.
-    
+
     File format types:
-    
+
         new - Everything in a long sequence.
         old - Well, old phenotype file_format.
         guess - Guesses the file_format

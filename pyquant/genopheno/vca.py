@@ -30,26 +30,35 @@ def parseBedPosition(g, cisregion):
 ## Single trait variance component analysis
 def vca_st(args):
     import limix.vardec as var
+    from pyquant.mixmogam import linear_models
+    from limix.heritability import estimate
     # local global
     # packaged on 23.03.2017
     # cisregion = Chr1,1,1000
     inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = None, transform=args['transformation'])
+    log.info("calculating cisK")
     cispos_ix = parseBedPosition(inputs.geno, args['cisregion'])
     cisK = kinship.kinship_mat(inputs.geno.snps[cispos_ix,:][:,inputs.accinds])
+    log.info("running lmm")
+    ## From mixmogam
+    #par = linear_models.local_vs_global_mm(np.array(inputs.pheno.values), cisK, inputs.kin, inputs.kin, h0_res=None)
+    # we need to ask regarding the output of this function
+    # From limix
     vc = var.VarianceDecomposition(np.array(inputs.pheno.values), standardize=False)
     vc.addRandomEffect(K=cisK)
     vc.addRandomEffect(K=inputs.kin)
     vc.addRandomEffect(is_noise=True)
-    #vc.optimize()
+    import ipdb; ipdb.set_trace()
+    h2 = estimate(np.array(inputs.pheno.values), 'normal', inputs.kin, verbose=False)
+    vc.optimize()
     singleVar=vc.getVarianceComps(univariance = True)
     LM=vc.getLML()      #maximum likelihood of this model
     par = singleVar/np.sum(singleVar)*100
-    # Results
+    ## Results
     log.info("cis effect:   " + str(par[0][0]) + '%')
     log.info("trans effect: " + str(par[0][1]) + '%')
     log.info("noise:        " + str(par[0][2]) + '%')
-    import ipdb; ipdb.set_trace()
-    return par, LM
+    return par
 
 def eqtl_st(phenoFile, genoFile, kinFile, test="lrt", covs=None):
     import limix.qtl as qtl

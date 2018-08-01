@@ -48,7 +48,7 @@ def lmm_singleTrai(args, maf_thres = 0.05):
     """
     Linear mixed model, association studies
     """
-    inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = args['pheno_type'], transform=args['transformation'], test=args['test'])
+    inputs = parsers.InputsfurLimix(args['genoFile'], args['kinFile'], phenoFile= args['phenoFile'], pheno_type = args['pheno_type'], transform=args['transformation'], test=args['test'])
     if inputs.pheno_type is None:
         lmm = run_lmm_st(inputs)
     else:

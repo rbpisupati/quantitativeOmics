@@ -82,7 +82,7 @@ def readKinship(kinFile, reqAccsInd):
 
 class InputsfurLimix(object):
 
-    def __init__(self, genoFile, phenoFile, kinFile, pheno_type, transform, test=None):
+    def __init__(self, genoFile, kinFile, phenoFile= None, pheno_type=None, transform=None, test=None):
         self.geno = readGenotype(genoFile)
         self.pheno_type = pheno_type
         self.test = test
@@ -90,6 +90,9 @@ class InputsfurLimix(object):
         self.parseKinFile(kinFile)
 
     def parse_pheno(self, phenoFile, transform):
+        if phenoFile is None:
+            self.accinds = range(len(self.geno.accessions))
+            return(None)
         from pygwas.core import phenotype
         reqPheno, self.accinds = readPhenoData(phenoFile, self.geno)
         pheno = phenotype.Phenotype(self.geno.accessions[self.accinds], reqPheno, None)
