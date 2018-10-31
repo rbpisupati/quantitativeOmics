@@ -35,7 +35,7 @@ def vca_st(args):
     # local global
     # packaged on 23.03.2017
     # cisregion = Chr1,1,1000
-    inputs = parsers.InputsfurLimix(args['genoFile'], args['phenoFile'], args['kinFile'], pheno_type = None, transform=args['transformation'])
+    inputs = parsers.InputsfurLimix(args['genoFile'], args['kinFile'], phenoFile = args['phenoFile'], pheno_type = None, transform=args['transformation'])
     log.info("calculating cisK")
     cispos_ix = parseBedPosition(inputs.geno, args['cisregion'])
     cisK = kinship.kinship_mat(inputs.geno.snps[cispos_ix,:][:,inputs.accinds])
@@ -45,13 +45,14 @@ def vca_st(args):
     # we need to ask regarding the output of this function
     # From limix
     vc = var.VarianceDecomposition(np.array(inputs.pheno.values), standardize=False)
+    vc.addFixedEffect()
     vc.addRandomEffect(K=cisK)
     vc.addRandomEffect(K=inputs.kin)
     vc.addRandomEffect(is_noise=True)
     import ipdb; ipdb.set_trace()
-    h2 = estimate(np.array(inputs.pheno.values), 'normal', inputs.kin, verbose=False)
+    #h2 = estimate(np.array(inputs.pheno.values), 'normal', inputs.kin, verbose=False)
     vc.optimize()
-    singleVar=vc.getVarianceComps(univariance = True)
+    singleVar=vc.getVarianceComps()
     LM=vc.getLML()      #maximum likelihood of this model
     par = singleVar/np.sum(singleVar)*100
     ## Results

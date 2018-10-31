@@ -85,3 +85,16 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, plt_color="#d8b365", hist_color=
     p.ax_joint.set_xlabel( "SNPs" )
     p.ax_joint.set_ylabel( "genes" )
     return(p)
+
+
+def generate_manhattanplot(x_ind, y_ind, tair10, plt_color="#2c7fb8"):
+    y_lim_max = np.nanmax(y_ind) + 10
+    q = plt.scatter(x_ind, y_ind, color = plt_color)
+    for ix in  tair10.chr_inds:
+        q.axes.plot( [ix,ix], [0, y_lim_max], 'k-', color = '#bdbdbd')
+    q.axes.set_xticks( tair10.chr_inds[0:5] + (np.array(tair10.golden_chrlen)/2) )
+    q.axes.set_xticklabels( tair10.chrs )
+    q.axes.set_xlabel( "markers" )
+    q.axes.set_ylim( [0, y_lim_max] )
+    q.axes.set_xlim( [0, tair10.chr_inds[-1]] )
+    return(q)

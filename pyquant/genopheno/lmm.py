@@ -25,6 +25,12 @@ def get_bh_thres(pvals, fdr_thres=0.05):
     else:
         return(0)
 
+def run_lm_st(inputs):
+    from limix.qtl import qtl_test_lm
+    for snp in inputs.geno.get_snps_iterator(is_chunked=True):
+        lm_chunk = qtl_test_lm(np.array(snp[:,inputs.accinds], dtype=int).T, np.array(inputs.pheno.values), test=inputs.test)
+        yield(lm_chunk)
+
 def run_lmm_st(inputs):
     from limix.qtl import qtl_test_lmm
     for snp in inputs.geno.get_snps_iterator(is_chunked=True):
