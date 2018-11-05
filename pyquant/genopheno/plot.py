@@ -3,9 +3,13 @@ import scipy.stats as st
 import numpy as np
 import matplotlib.pylab as plt
 import logging
+import sys
 
 log = logging.getLogger(__name__)
 
+def die(msg):
+  sys.stderr.write('Error: ' + msg + '\n')
+  sys.exit(1)
 
 ### Implemented from limix plot
 def _qqplot_bar(M=1000000, alphaLevel=0.05, distr='log10'):
