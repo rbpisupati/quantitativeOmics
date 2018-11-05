@@ -51,8 +51,16 @@ class QTLmapperLM(object):
         else:
             return(np.intersect1d( filter_accs_no_nans, np.where(self.pheno.notna().all(axis=1))[0]))
 
-    def filter_markers_hardyweinburg(self, filter_thres = 0.1):
+    def filter_markers_HWP(self, filter_thres = 0.1):
+        ### Filters markers based on hardy weinberg principle
         return(None)
+
+    def skip_mapping(self, min_accs = 20):
+        ## Function to check if the phenotype has not many nans
+        filter_nanaccs_ix = self.get_filter_accs_nans()
+        if len(filter_nanaccs_ix) < min_accs:
+            return(True)
+        return(False)
 
     def get_geno_meths_df(self, geno_ix):
         if type(self.pheno) is pd.Series:
@@ -95,14 +103,16 @@ class QTLmapperLM(object):
                 lm.append(qtl_test_lm(self.genos[filter_nanaccs_ix, :], np.array( self.pheno[cl][filter_nanaccs_ix] ), covs = covs[filter_nanaccs_ix] ))
             return(lm) ## returns an array
 
-    def plot_qtl_map(self, lm, tair10):
+    def plot_qtl_map(self, lm, tair10, output_file=None):
         from . import plot as pygplot
         ## tair10 is the class variable for the genome
         q = pygplot.generate_manhattanplot( tair10.get_genomewide_inds( self.bed_str ), -np.log10(lm.getPv()[0,:]), tair10)
         q.axes.set_ylabel("p-values")
+        if output_file is not None:
+            q.figure.savefig(output_file, height = 50, width = 50)
         return(q)
 
-    def get_qtl_peaks(self, lm):
+    def get_qtl_peaks(self, lm, output_file=None, req_gene = None):
         pvals = lm.getPv().flatten()
         pval_nan_ix = np.where(np.isfinite(pvals))[0]
         qvals = lstat.qvalues(pvals[pval_nan_ix])
@@ -110,4 +120,8 @@ class QTLmapperLM(object):
         qval_cats = np.around(-np.log10( qvals[peak_inds] ), decimals = 2)
         #qval_cats = np.array(pd.cut(qvals[peak_inds], bins = [0,0.00000001,0.000001,0.0001,0.001,0.01], labels=["8","6", "4", "3","2"]), dtype="string")
         peak_strs = self.bed_str[pval_nan_ix[peak_inds]]
-        return(pd.DataFrame( np.column_stack((peak_strs, qval_cats)), columns = ["peak_pos", "peak_cat"] ) )
+        peaks_df = pd.DataFrame( np.column_stack((peak_strs, qval_cats)), columns = ["peak_pos", "peak_cat"] )
+        if output_file is not None:
+            for ef in range(peaks_df.shape[0]):
+                output_file.write( "%s\t%s\t%s\n" % ( req_gene, str(peaks_df.iloc[ef, 0]), str(peaks_df.iloc[ef, 1]) ) )
+        return( peaks_df )
