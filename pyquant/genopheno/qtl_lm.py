@@ -36,24 +36,42 @@ class QTLmapperLM(object):
             if bed_str is None:
                 log.warn( "please provide bed_str (array with genotype marker positions), useful in plotting" )
         elif type(genotypes) is the1001g.HDF51001gTable:
-            acc_ix = genotypes.get_matching_accs_ix( list(self.pheno.index) )
-            assert len(acc_ix) > 0
-            self.genos = np.array( genotypes.__getattr__('value') )[:, acc_ix].T
+            acc_ix = self._matching_accs_ix(genotypes)
+            self.genos = np.array( genotypes.__getattr__('value') )[:, acc_ix[0]].T
+            self.pheno = self.pheno.iloc[acc_ix[1],]
             assert self.genos.shape[0] == self.pheno.shape[0]
             self.bed_str = pd.Series(genotypes.get_bed_df(None, return_str=True))
 
+    def _matching_accs_ix(self, genotypes):
+        ## genotypes is a HDF51001gTable
+        common_accs = np.intersect1d( genotypes.accessions, np.array(list(self.pheno.index)) )
+        acc_ix_geno = genotypes.get_matching_accs_ix( common_accs )
+        acc_ix_pheno = np.where( np.in1d( np.array(list(self.pheno.index)), common_accs ) )[0]
+        assert len(acc_ix_geno) == len(acc_ix_pheno)
+        assert len(acc_ix_geno) > 0
+        if len(acc_ix_pheno) / float(self.pheno.shape[0]) <= 0.2 or len(acc_ix_geno) / float(genotypes.accessions.shape[0]) <= 0.2 :
+            log.warn("There are very few samples in genotype that match to samples with phenotypes")
+        return((acc_ix_geno, acc_ix_pheno))
 
     def get_filter_accs_nans(self, filter_thres = 0.1):
         ## Filters accessions which have less then 10% of markers defined
-        filter_accs_no_nans = np.where(np.unique(np.where(np.isnan(self.genos))[0], return_counts=True)[1] < filter_thres * self.genos.shape[1])[0]
+        filter_accs_no_nans = np.where( pd.DataFrame(self.genos.T).isna().sum() < filter_thres * self.genos.shape[1])[0]
         if type(self.pheno) is pd.Series:
             return(np.intersect1d( filter_accs_no_nans, np.where(self.pheno.notna())[0]))
         else:
             return(np.intersect1d( filter_accs_no_nans, np.where(self.pheno.notna().all(axis=1))[0]))
 
-    def filter_markers_HWP(self, filter_thres = 0.1):
+    def filter_markers_HWP(self, pval_thres = 0.05):
         ### Filters markers based on hardy weinberg principle
-        return(None)
+        mend_stats = np.zeros(0, dtype=float)
+        mend_pval = np.zeros(0, dtype=float)
+        for e_ix in range(self.genos.shape[1]):
+            obs_n = np.array([ len(np.where( self.genos[:,e_ix] == eg )[0]) for eg in range(3) ])
+            exp_n = np.array((0.25,0.5,0.25)) * np.sum(obs_n)
+            sch = st.chisquare(f_exp=exp_n, f_obs=obs_n)
+            mend_stats = np.append(mend_stats, sch.statistic)
+            mend_pval = np.append(mend_pval, sch.pvalue)
+        return((mend_stats, mend_pval))
 
     def skip_mapping(self, min_accs = 20):
         ## Function to check if the phenotype has not many nans
@@ -78,7 +96,8 @@ class QTLmapperLM(object):
         lm.X = X
         lm.y_pred = lm.predict(lm.X)
         lm.mse = sklm.mean_squared_error(m, lm.y_pred)
-        lm.vscore = lm.score(lm.X, m)
+        #lm.vscore = lm.score(lm.X, m)
+        lm.vscore = sklm.explained_variance_score( m, lm.y_pred )
         sse = np.sum((lm.predict(lm.X) - m) ** 2, axis=0) / float(lm.X.shape[0] - lm.X.shape[1])
         se = np.array([np.sqrt(np.diagonal(sse * np.linalg.inv(np.dot(lm.X.T, lm.X))))])
         lmt = lm.coef_ / se
@@ -103,11 +122,12 @@ class QTLmapperLM(object):
                 lm.append(qtl_test_lm(self.genos[filter_nanaccs_ix, :], np.array( self.pheno[cl][filter_nanaccs_ix] ), covs = covs[filter_nanaccs_ix] ))
             return(lm) ## returns an array
 
-    def plot_qtl_map(self, lm, tair10, output_file=None):
+    def plot_qtl_map(self, lm, tair10, output_file=None, ylim = None):
         from . import plot as pygplot
         ## tair10 is the class variable for the genome
-        q = pygplot.generate_manhattanplot( tair10.get_genomewide_inds( self.bed_str ), -np.log10(lm.getPv()[0,:]), tair10)
-        q.axes.set_ylabel("p-values")
+        qvalues = -np.log10(lm.getPv()[0,:])
+        q = pygplot.generate_manhattanplot( tair10.get_genomewide_inds( self.bed_str ), qvalues, tair10, ylim = ylim)
+        q.axes.set_ylabel("q-values")
         if output_file is not None:
             q.figure.savefig(output_file, height = 50, width = 50)
         return(q)
