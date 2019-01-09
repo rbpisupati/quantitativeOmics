@@ -134,14 +134,15 @@ class QTLmapperLM(object):
 
     def get_qtl_peaks(self, lm, output_file=None, req_gene = None):
         pvals = lm.getPv().flatten()
+        betas = lm.beta_snp.flatten()
         pval_nan_ix = np.where(np.isfinite(pvals))[0]
         qvals = lstat.qvalues(pvals[pval_nan_ix])
         peak_inds = np.where(qvals < 0.01)[0]
         qval_cats = np.around(-np.log10( qvals[peak_inds] ), decimals = 2)
-        #qval_cats = np.array(pd.cut(qvals[peak_inds], bins = [0,0.00000001,0.000001,0.0001,0.001,0.01], labels=["8","6", "4", "3","2"]), dtype="string")
         peak_strs = self.bed_str[pval_nan_ix[peak_inds]]
-        peaks_df = pd.DataFrame( np.column_stack((peak_strs, qval_cats)), columns = ["peak_pos", "peak_cat"] )
+        betas_cat = np.around(betas[pval_nan_ix[peak_inds]], decimals = 2)
+        peaks_df = pd.DataFrame( np.column_stack((peak_strs, qval_cats, betas_cat)), columns = ["peak_pos", "peak_cat", "peak_beta"] )
         if output_file is not None:
             for ef in range(peaks_df.shape[0]):
-                output_file.write( "%s\t%s\t%s\n" % ( req_gene, str(peaks_df.iloc[ef, 0]), str(peaks_df.iloc[ef, 1]) ) )
+                output_file.write( "%s\t%s\t%s\t%s\n" % ( req_gene, str(peaks_df.iloc[ef, 0]), str(peaks_df.iloc[ef, 1]), str(peaks_df.iloc[ef, 2]) ) )
         return( peaks_df )

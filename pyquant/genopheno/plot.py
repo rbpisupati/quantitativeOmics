@@ -94,9 +94,11 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, plt_color="#d8b365", hist_color=
 def generate_manhattanplot(x_ind, y_ind, tair10, plt_color="#2c7fb8", ylim = None):
     if ylim is None:
         if np.isnan(np.nanmax(y_ind)):
-            ylim = 1
+            ylim = 2
         else:
             ylim = np.nanmax(y_ind) + 10
+    if np.isinf(ylim) or np.isnan(ylim):
+        ylim = 2
     q = plt.scatter(x_ind, y_ind, color = plt_color)
     for ix in  tair10.chr_inds:
         q.axes.plot( [ix,ix], [0, ylim], 'k-', color = '#bdbdbd')
