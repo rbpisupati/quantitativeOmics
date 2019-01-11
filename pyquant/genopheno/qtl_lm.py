@@ -136,9 +136,9 @@ class QTLmapperLM(object):
         pvals = lm.getPv().flatten()
         betas = lm.beta_snp.flatten()
         pval_nan_ix = np.where(np.isfinite(pvals))[0]
-        qvals = lstat.qvalues(pvals[pval_nan_ix])
-        peak_inds = np.where(qvals < 0.01)[0]
-        qval_cats = np.around(-np.log10( qvals[peak_inds] ), decimals = 2)
+        qvals_lg = -np.log10( lstat.qvalues(pvals[pval_nan_ix]) )
+        peak_inds = np.where((qvals_lg > 2) & np.isfinite(qvals_lg) )[0]
+        qval_cats = np.around( qvals_lg[peak_inds], decimals = 2)
         peak_strs = self.bed_str[pval_nan_ix[peak_inds]]
         betas_cat = np.around(betas[pval_nan_ix[peak_inds]], decimals = 2)
         peaks_df = pd.DataFrame( np.column_stack((peak_strs, qval_cats, betas_cat)), columns = ["peak_pos", "peak_cat", "peak_beta"] )
