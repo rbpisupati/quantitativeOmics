@@ -112,7 +112,7 @@ class QTLmapperLM(object):
             assert type(covs) is np.ndarray
             filter_nanaccs_ix = np.intersect1d( filter_nanaccs_ix, np.where(np.isfinite( np.array(covs) ))[0] )
         if type(self.pheno) is pd.Series:
-            lm = qtl_test_lm(self.genos[filter_nanaccs_ix, :], np.array( self.pheno[filter_nanaccs_ix] ), covs = covs[filter_nanaccs_ix] )
+            lm = qtl_test_lm(self.genos[filter_nanaccs_ix, :], np.array( self.pheno.iloc[filter_nanaccs_ix] ), covs = covs[filter_nanaccs_ix] )
             if len(np.where(np.isfinite(lm.getPv()[0]))[0]) == 0:
                 return(None)
             return(lm)
@@ -132,7 +132,7 @@ class QTLmapperLM(object):
             q.figure.savefig(output_file, height = 50, width = 50)
         return(q)
 
-    def get_qtl_peaks(self, lm, output_file=None, req_gene = None):
+    def get_qtl_peaks(self, lm, output_file=None, gene_name = None):
         pvals = lm.getPv().flatten()
         betas = lm.beta_snp.flatten()
         pval_nan_ix = np.where(np.isfinite(pvals))[0]
@@ -144,5 +144,5 @@ class QTLmapperLM(object):
         peaks_df = pd.DataFrame( np.column_stack((peak_strs, qval_cats, betas_cat)), columns = ["peak_pos", "peak_cat", "peak_beta"] )
         if output_file is not None:
             for ef in range(peaks_df.shape[0]):
-                output_file.write( "%s\t%s\t%s\t%s\n" % ( req_gene, str(peaks_df.iloc[ef, 0]), str(peaks_df.iloc[ef, 1]), str(peaks_df.iloc[ef, 2]) ) )
+                output_file.write( "%s\t%s\t%s\t%s\n" % ( gene_name, str(peaks_df.iloc[ef, 0]), str(peaks_df.iloc[ef, 1]), str(peaks_df.iloc[ef, 2]) ) )
         return( peaks_df )

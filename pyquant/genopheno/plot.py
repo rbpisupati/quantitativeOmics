@@ -75,7 +75,13 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, plt_color="#d8b365", hist_color=
     # tair10 is a class function giving information about the genome eg. bshap.core.the1001g.ArabidopsisGenome
     import seaborn as sns
     sns.set(style="white", color_codes=True)
-    p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", color = plt_color, alpha = 0.1, joint_kws={"s": 8})
+    if type(plt_color) is np.ndarray:
+        p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", alpha = 0.1, joint_kws={"s": 8})
+        p.ax_joint.cla()
+        #for i in range(len(x_ind)):
+        p.ax_joint.scatter(x_ind, y_ind, c=plt_color, s = 8)
+    else:
+        p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", color = plt_color, alpha = 0.1, joint_kws={"s": 8})
     p.ax_marg_y.remove()
     for i in range(len(tair10.chrs)):
         p.ax_joint.plot( (tair10.chr_inds[i + 1] , tair10.chr_inds[i + 1]) , (1,tair10.chr_inds[-1]), '-', color = "gray")
@@ -91,7 +97,11 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, plt_color="#d8b365", hist_color=
     return(p)
 
 
-def generate_manhattanplot(x_ind, y_ind, tair10, plt_color="#2c7fb8", ylim = None):
+def generate_manhattanplot(x_ind, y_ind, tair10, plt_color=None, ylim = None, s = 6):
+    if plt_color is None:
+        plt_color = tair10.def_color
+    if type(plt_color) is str or len(plt_color) < len(tair10.chrs):
+        plt_color = [plt_color] * len(tair10.chrs)
     if ylim is None:
         if np.isnan(np.nanmax(y_ind)):
             ylim = 2
@@ -99,9 +109,11 @@ def generate_manhattanplot(x_ind, y_ind, tair10, plt_color="#2c7fb8", ylim = Non
             ylim = np.nanmax(y_ind) + 10
     if np.isinf(ylim) or np.isnan(ylim):
         ylim = 2
-    q = plt.scatter(x_ind, y_ind, color = plt_color)
-    for ix in  tair10.chr_inds:
-        q.axes.plot( [ix,ix], [0, ylim], 'k-', color = '#bdbdbd')
+    q = plt.scatter([0], [0])
+    for ix in range(len(tair10.chrs)):
+        t_chr_ix = np.where((x_ind <= tair10.chr_inds[ix+1]) & ( x_ind > tair10.chr_inds[ix] ))[0]
+        q = plt.scatter(x_ind[t_chr_ix], y_ind[t_chr_ix], s = s, c = plt_color[ix])
+        q.axes.plot( [tair10.chr_inds[ix+1],tair10.chr_inds[ix+1]], [0, ylim], 'k-', color = '#bdbdbd')
     q.axes.set_xticks( tair10.chr_inds[0:5] + (np.array(tair10.golden_chrlen)/2) )
     q.axes.set_xticklabels( tair10.chrs )
     q.axes.set_xlabel( "markers" )
