@@ -29,7 +29,6 @@ setup(
         "numpy >=1.6.1",
         "scipy >=0.17.0",
         "limix",
-        "pygwas",
         "statsmodels"
     ],
     entry_points={
