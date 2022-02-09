@@ -9,11 +9,12 @@ import numba as nb
 
 from scipy.signal import find_peaks
 import multiprocessing as mp
-
+from . import parsers
 
 def write_h5_qtls(input_file, tair10, marker_names, output_file, models_used = ['g', 'cis', 'cim', 'cis_given', 'gpluse', 'gxe', 'pval_nocis']):
     print( "reading in the file" )
     qtls_df = pd.read_csv(input_file, header=None, index_col=0)
+    import ipdb; ipdb.set_trace()
     print("done")
     gene_list = qtls_df.index[qtls_df.index.str.endswith('.' + models_used[0])].str.replace( '.' + models_used[0], "" ).values
     gene_list = gene_list[np.argsort(tair10.get_genomewide_inds( pd.Series(gene_list) ))]
@@ -32,27 +33,32 @@ def write_h5_qtls(input_file, tair10, marker_names, output_file, models_used = [
     print("finished!")
     
     
-class readQTLdata(object):
+class readQTLresults(parsers.readRqtlMaps):
 
-    def __init__(self, hdf5_file, genome_class):
+    def __init__(self, input_genetic_map, qtl_results_h5_file, genome_class, marker_id_startswith = "Chr", marker_id_split = ":", marker_names = ['AA', 'AB', 'BB']):
+        super().__init__(input_maps = {"map": input_genetic_map}, marker_id_startswith = marker_id_startswith, marker_id_split = marker_id_split, marker_names = marker_names  )
         self.genome_class = genome_class
-        self.h5file = h5.File(hdf5_file,'r')
-        self.markers = np.array(self.h5file['markers']).astype('U')
-        self.markers = pd.DataFrame(self.markers, columns=["chr", "pos" ])
-        self.markers['pos'] = self.markers['pos'].astype(int)
-        self.markers['genome_ix'] = np.array(self.h5file['marker_pos']).astype("U").astype(int)
-        self.marker_indices = self.markers.groupby(["chr"]).indices
-        self.gene_str = np.array(self.h5file['genes']).astype('U')
-        self.gene_genome_ind = self.genome_class.get_genomewide_inds(pd.Series(self.gene_str))
-    
+        self.markers_map['genome_ix'] = self.genome_class.get_genomewide_inds( self.markers_map ) 
+        # _,inType = os.path.splitext(qtl_results_h5_file)
+        # if inType == '.hdf5':
+        self.h5file = h5.File(qtl_results_h5_file, 'r')
+        assert np.array(self.h5file['markers']).shape[0] == self.markers_map.shape[0], "Markers in genetic map do not match with results"
+        t_gene_str = np.array(self.h5file['genes']).astype('U')
+        self.gene_str = pd.Series( t_gene_str ).str.split( ",", expand = True )
+        self.gene_str.index = t_gene_str
+        self.gene_str['genome_ix'] = self.genome_class.get_genomewide_inds(pd.Series(t_gene_str))
+        # self.csvfile = h5.File(qtl_results_file, 'r')
+        # self.gene_str.columns = ['chr', 'start', 'end']
+
     def filter_gene_ix(self, req_gene_str):
-        filter_ix = np.where( np.in1d(self.gene_str, req_gene_str) )[0]
+        filter_ix = np.where( np.in1d(self.gene_str.index, req_gene_str) )[0]
         return(filter_ix)
     
     def get_matrix(self, model, req_gene_str):
         ef_gene_ix = self.filter_gene_ix( req_gene_str )
         ef_qtls = np.array(self.h5file[model][ef_gene_ix,:])
-        return( pd.DataFrame( ef_qtls, columns= self.markers['genome_ix'].values, index = self.gene_str[ef_gene_ix] ) )
+        #  self.gene_str['genome_ix'][ef_gene_ix].values
+        return( pd.DataFrame( ef_qtls, columns= self.markers_map['genome_ix'].values, index = req_gene_str ) )
     
     def get_long_matrix(self, model, req_gene_str, qtl_min = 3, qtl_max = 15):
         ef_matrix = self.get_matrix( model, req_gene_str )
@@ -70,28 +76,9 @@ class readQTLdata(object):
         ## get the peaks for each gene . using scipy
         ## https://stackoverflow.com/questions/4624970/finding-local-maxima-minima-with-numpy-in-a-1d-numpy-array
         genes_lods_df = self.get_matrix(model, req_gene_str)
-        genes_lods_ddf = ddf.from_pandas(genes_lods_df, npartitions=nprocs)   # where the number of partitions is the number of cores you want to use
-        output_peaks = genes_lods_ddf.apply( lambda x: determine_peaks_given_lods(x, qtl_min = qtl_min ), meta=('int'), axis=1 ).compute(scheduler='multiprocessing')
-        output_peaks = output_peaks.apply(pd.Series).stack().reset_index(drop=False)
-        output_peaks.columns = np.array( ["gene_str", "qtl_num", "marker_ix"] )
-        output_peaks['marker_ix'] = output_peaks['marker_ix'].astype(int)
-        output_peaks['genome_marker_ind'] = self.markers['genome_ix'].values[output_peaks['marker_ix'].astype(int)]
-        output_peaks['qtl_num'] = output_peaks['qtl_num'].astype(int) + 1
-        output_peaks['genome_gene_ind'] = (pd.Series(self.gene_genome_ind, index = self.gene_str).loc[ output_peaks['gene_str'].values ]).values
-        output_peaks['lod'] = np.array([genes_lods_df.at[ef[0], ef[1]] for ef in zip(output_peaks['gene_str'].values, output_peaks['genome_marker_ind'] )])
-        if qtl_max is not None and str(qtl_max).isnumeric():
-            output_peaks.loc[output_peaks['lod'] > float(qtl_max), 'lod'] = float(qtl_max)
+        output_peaks = determine_peaks_from_wide_matrix_of_lods(genes_lods_df, nprocs = nprocs, qtl_min = qtl_min, qtl_max = qtl_max, n_smooth = 200 )
+        output_peaks['genome_gene_ind'] = self.gene_str['genome_ix'].loc[ output_peaks['gene_str'] ].values 
         return(output_peaks)
-        # for ef_gene_ix in req_gene_ix:
-        #     ef_gene_peaks = self.determine_peaks_given_gene_ix(ef_gene_ix, model = model, n_smooth = n_smooth, qtl_min = qtl_min, peak_prominence = peak_prominence)
-        #     out_peaks = out_peaks.append( pd.DataFrame( {"gene_ix": self.gene_genome_ind[ef_gene_ix], "marker_ix": self.markers['genome_ix'][ef_gene_peaks].values, "LOD": self.h5file[model][ef_gene_ix,:][ef_gene_peaks] } ), ignore_index = True)
-        # mp_pool = mp.Pool( 12 )
-        # mp_drones=[mp_pool.apply_async(self.determine_peaks_given_gene_ix, args=gene_ix) for gene_ix in req_gene_ix ] 
-        # for drone in mp_drones: 
-        #     Results.collectData(drone.get())    
-        # mp_pool.close()
-        # mp_pool.join() 
-        # return( out_peaks )
         
     def calculate_gxe( self, g_null = 'g', g_add = 'gpluse', g_int = 'gxe' ):
         null_model = self.get_matrix( g_null, self.gene_str )
@@ -102,6 +89,29 @@ class readQTLdata(object):
         gxe_model = gxe_model - add_model
         add_model = add_model - null_model
         return( { "add": add_model, "int": gxe_model } )
+
+def determine_peaks_from_wide_matrix_of_lods(genes_lods_df, nprocs = 8, qtl_min = 3, qtl_max = None, n_smooth = 250):
+    """
+    Function to get the peaks from a wide matrix
+    rows: genes
+    cols: markers 
+    with lod scores
+    """
+    genes_lods_ddf = ddf.from_pandas(genes_lods_df, npartitions=nprocs)   # where the number of partitions is the number of cores you want to use
+    output_peaks = genes_lods_ddf.apply( lambda x: determine_peaks_given_lods(x, qtl_min = qtl_min, n_smooth = n_smooth), meta=('int'), axis=1 ).compute(scheduler='multiprocessing')
+    if output_peaks.apply(len).sum() > 0:
+        output_peaks = output_peaks.apply(pd.Series).stack().reset_index(drop=False)
+        output_peaks.columns = np.array( ["gene_str", "qtl_num", "marker_ix"] )
+        output_peaks['marker_ix'] = output_peaks['marker_ix'].astype(int)
+        output_peaks['genome_marker_ind'] = genes_lods_df.columns.values[ output_peaks['marker_ix'].astype(int) ]
+        output_peaks['qtl_num'] = output_peaks['qtl_num'].astype(int) + 1
+        output_peaks['lod'] = np.array([genes_lods_df.at[ef[0], ef[1]] for ef in zip(output_peaks['gene_str'].values, output_peaks['genome_marker_ind'] )])
+        if qtl_max is not None and str(qtl_max).isnumeric():
+            output_peaks.loc[output_peaks['lod'] > float(qtl_max), 'lod'] = float(qtl_max)
+        return(output_peaks)
+    else:
+        return( pd.DataFrame( columns = ["gene_str", "qtl_num", "marker_ix", "lod"] ) )
+
 
 def determine_peaks_given_lods(lod_scores, qtl_min = 3, peak_prominence = 1, n_smooth = 250, **kwargs):
     ##  Using a smoothing function -- convolve
@@ -156,3 +166,66 @@ def genome_rotations_2d(lod_scores_2d, npermute = 100):
             t_perm_out[ef_line,:] = np.concatenate((lod_scores_2d[ef_line, ef_rng:], lod_scores_2d[ef_line, 0:ef_rng]))
         output_matrix[ef,:] = np.sum(t_perm_out, axis = 0 )
     return(output_matrix)
+
+
+def invLogit(x):
+    return(1 / (1 + np.exp(-x)))
+
+def logit(x):
+    return(np.log((x/(1 - x))))
+
+def transform_beta(x, s = 0.5):
+    return( (x * (x.shape[0] - 1 ) + s) / len(x) )
+
+def perform_tukey_hsd(endog, groups, groups_order, alpha = 0.01):
+    groups_mod = utils.marker_to_int( groups, groups_order).astype(str)
+    ef_model_tukey = pairwise_tukeyhsd(endog = endog, groups = groups_mod, alpha = alpha)
+    ef_model_tukey = pd.DataFrame(data=ef_model_tukey._results_table.data[1:], columns=ef_model_tukey._results_table.data[0])
+    ef_model_tukey = ef_model_tukey.set_index(ef_model_tukey['group1'] + "_" + ef_model_tukey['group2'] )
+    return(ef_model_tukey)
+
+
+def linear_model_tukey(ef_data_phenos):
+    phenos_list = ['CG', 'CHG', 'CHH']
+    marker_list = ['AA', 'AB', 'BB']
+    temp_list = ['T4', "T16"]
+    cisxtemp_list = ['AA_T4', 'AA_T16', 'AB_T4', 'AB_T16', 'BB_T4', 'BB_T16']
+    
+    ef_model_data = pd.Series(dtype = float)
+    ef_model_data = ef_model_data.append(pd.Series((ef_data_phenos['cisxtemp'] == cisxtemp_list[1]).sum(), index = ['counts_AA_T16']  ) )
+    ef_model_data = ef_model_data.append(pd.Series((ef_data_phenos['cisxtemp'] == cisxtemp_list[5]).sum(), index = ['counts_BB_T16']  ) )
+    for ef_pheno in phenos_list:
+        ef_model_data = ef_model_data.append(pd.Series(ef_data_phenos[ef_pheno].describe()[["mean", 'std']].values,      index = ['meths_mean.' + ef_pheno, 'meths_std.' + ef_pheno]  ) )
+
+        ef_model = anova.anova_lm( smapi.ols( ef_pheno + " ~ temp + marker ", data = ef_data_phenos).fit(), typ = 2 )
+        ef_model = ef_model.reindex( ['temp', 'marker', 'Residual'] )
+        ef_model_data = ef_model_data.append(pd.Series(ef_model.loc["temp", "sum_sq"],      index = ['ss_temp.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_model.loc["marker", "sum_sq"],    index = ['ss_cis.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_model.loc["Residual", "sum_sq"],  index = ['ss_residual.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_model.loc["temp", "PR(>F)"],      index = ['pval_temp.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_model.loc["marker", "PR(>F)"],    index = ['pval_cis.' + ef_pheno]  ) )
+        
+        ef_tukey_temp = perform_tukey_hsd(ef_data_phenos[ef_pheno], ef_data_phenos['temp'], groups_order = temp_list)
+        ef_tukey_cis = perform_tukey_hsd(ef_data_phenos[ef_pheno], ef_data_phenos['marker'], groups_order = marker_list)
+        ef_tukey_cistemp = perform_tukey_hsd(ef_data_phenos[ef_pheno], ef_data_phenos['cisxtemp'], groups_order = cisxtemp_list)
+        
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_temp.reindex(["1_2"]).loc["1_2", "meandiff"],   index = ['eff_temp_diff.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_temp.reindex(["1_2"]).loc["1_2", "lower"],      index = ['eff_temp_lwr.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_temp.reindex(["1_2"]).loc["1_2", "upper"],      index = ['eff_temp_upr.' + ef_pheno]  ) )
+        
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cis.reindex(["1_3"]).loc["1_3", "meandiff"],    index = ['eff_AA.BB_diff.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cis.reindex(["1_3"]).loc["1_3", "lower"],       index = ['eff_AA.BB_lwr.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cis.reindex(["1_3"]).loc["1_3", "upper"],       index = ['eff_AA.BB_upr.' + ef_pheno]  ) )
+        
+        ef_model_data = ef_model_data.append(pd.Series(ef_data_phenos[ef_data_phenos['cisxtemp'] == cisxtemp_list[1] ][ef_pheno].describe()[['mean', 'std']].values,    index = ['meths_AA_T16.mean.' + ef_pheno, 'meths_AA_T16.std.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["1_2"]).loc["1_2", "meandiff"],    index = ['eff_temp.AA_diff.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["1_2"]).loc["1_2", "lower"],       index = ['eff_temp.AA_lwr.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["1_2"]).loc["1_2", "upper"],       index = ['eff_temp.AA_upr.' + ef_pheno]  ) )
+
+        ef_model_data = ef_model_data.append(pd.Series(ef_data_phenos[ef_data_phenos['cisxtemp'] == cisxtemp_list[5] ][ef_pheno].describe()[['mean', 'std']].values,    index = ['meths_BB_T16.mean.' + ef_pheno, 'meths_BB_T16.std.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["5_6"]).loc["5_6", "meandiff"],    index = ['eff_temp.BB_diff.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["5_6"]).loc["5_6", "lower"],       index = ['eff_temp.BB_lwr.' + ef_pheno]  ) )
+        ef_model_data = ef_model_data.append(pd.Series(ef_tukey_cistemp.reindex(["5_6"]).loc["5_6", "upper"],       index = ['eff_temp.BB_upr.' + ef_pheno]  ) )
+    
+    return(ef_model_data)
+

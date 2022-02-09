@@ -1,6 +1,7 @@
 import scipy as sp
 import scipy.stats as st
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 import sys
@@ -114,12 +115,12 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, peak_heights = None, legend_scal
         plt_color = np_scale_colors(legend_scale[0], legend_scale[1], peak_heights)
 
     if type(plt_color) is np.ndarray:
-        p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", alpha = 0.1, joint_kws={"s": 8})
+        p = sns.jointplot(x = x_ind, y = y_ind, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", alpha = 0.1, joint_kws={"s": 8})
         p.ax_joint.cla()
         #for i in range(len(x_ind)):
-        p.ax_joint.scatter(x_ind, y_ind, c=plt_color, s = 8)
+        p.ax_joint.scatter(x = x_ind, y = y_ind, c=plt_color, s = 8)
     else:
-        p = sns.jointplot(x_ind, y_ind, stat_func = None, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", color = plt_color, alpha = 0.1, joint_kws={"s": 8})
+        p = sns.jointplot(x = x_ind, y = y_ind, marginal_kws={"bins": np.linspace(1, tair10.chr_inds[-1], 250),"color": hist_color }, xlim = (1, tair10.chr_inds[-1]), ylim = (1, tair10.chr_inds[-1]), kind = "scatter", color = plt_color, alpha = 0.1, joint_kws={"s": 8})
     p.ax_marg_y.remove()
     p.ax_joint.plot( (0, 0) , (1,tair10.chr_inds[-1]), '-', color = "gray")
     p.ax_joint.plot( (1,tair10.chr_inds[-1]), (0, 0), '-', color = "gray")
@@ -143,7 +144,7 @@ def plt_gwas_peaks_matrix(x_ind, y_ind, tair10, peak_heights = None, legend_scal
     return(p)
 
 
-def generate_manhattanplot(x_ind, y_ind, tair10, plt_color=None, ylim = None, thres=None, gap = 10000000, s = 6, line = False, **kwargs):
+def generate_manhattanplot(x_ind, y_ind, tair10, axs = None, plt_color=None, ylim = None, thres=None, gap = 10000000, s = 6, line = False, **kwargs):
     """
     Function to plot manhattan
         Required arguments: 
@@ -167,26 +168,147 @@ def generate_manhattanplot(x_ind, y_ind, tair10, plt_color=None, ylim = None, th
             ylim = [-0.1, 2]
         else:
             ylim = [-0.1, np.nanmax(y_ind) + 10]
-    q = plt.scatter([0], [0], s = 0)
+    if axs is None:
+        axs = plt.gca()
+    # q = plt.scatter([0], [0], s = 0)
     for ix in range(len(tair10.chrs)):
         t_chr_ix = np.where((x_ind <= tair10.chr_inds[ix+1]) & ( x_ind > tair10.chr_inds[ix] ))[0]
         #y_ind[t_chr_ix[-1]] = 0
         #y_ind[t_chr_ix[0]] = 0
         if line:
-            q.axes.plot(x_ind[t_chr_ix] + (gap * ix) , y_ind[t_chr_ix], color = plt_color[ix], **kwargs)
+            axs.plot(x_ind[t_chr_ix] + (gap * ix) , y_ind[t_chr_ix], color = plt_color[ix], **kwargs)
         else:
-            q.axes.scatter(x_ind[t_chr_ix] + (gap * ix), y_ind[t_chr_ix], s = s, c = plt_color[ix], **kwargs)
+            axs.scatter(x_ind[t_chr_ix] + (gap * ix), y_ind[t_chr_ix], s = s, c = plt_color[ix], **kwargs)
         #q.axes.plot( [tair10.chr_inds[ix] + tair10.centro_mid[ix] + (gap * ix), tair10.chr_inds[ix] + tair10.centro_mid[ix] + (gap * ix)], ylim, '--', color = '#bdbdbd')
         #q.axes.plot( [tair10.chr_inds[ix+1] + (gap * ix), tair10.chr_inds[ix+1] + (gap * ix)], [0, ylim], 'k-', color = '#bdbdbd')
         # plt.xticks( np.arange(0, tair10.golden_chrlen[0], 10000000 ), [millify(ef) for ef in np.arange(0, tair10.golden_chrlen[0], 10000000 )] )
-    q.axes.set_xticks( tair10.chr_inds[0:-1] + (np.arange(len(tair10.chrs)) * gap) + (np.array(tair10.golden_chrlen)/2) )
-    q.axes.set_xticklabels( tair10.chrs )
+    axs.set_xticks( tair10.chr_inds[0:-1] + (np.arange(len(tair10.chrs)) * gap) + (np.array(tair10.golden_chrlen)/2) )
+    axs.set_xticklabels( tair10.chrs )
     if thres is not None:
-        q.axes.plot((0, tair10.chr_inds[-1] + (gap * (len(tair10.chrs) - 1))  ), (thres, thres), "--", color = "gray")
-    q.axes.set_xlabel( "markers" )
-    q.axes.set_ylim( ylim )
-    q.axes.set_xlim( [0, tair10.chr_inds[-1] + (gap * (len(tair10.chrs) - 1)) ] )
-    return(q)
+        axs.plot((0, tair10.chr_inds[-1] + (gap * (len(tair10.chrs) - 1))  ), (thres, thres), "--", color = "gray")
+    axs.set_xlabel( "markers" )
+    axs.set_ylim( ylim )
+    axs.set_xlim( [0, tair10.chr_inds[-1] + (gap * (len(tair10.chrs) - 1)) ] )
+    return(axs)
+
+def generate_manhattanplot_bed(bed_df, genome_size_dict, plt_options = None, axs = None, **kwargs):
+    """
+    Function to plot manhattan
+        Required arguments: 
+        x_ind
+        y_ind
+            bed_df : pandas dataframe with (chr, pos, score)
+            genome_size_dict = dictionary for chromosome IDs and its lengths
+            x_ind
+
+        Plotting arguments:
+            plt_color : HEX colors for all 5 chromosomes, else default colors are taken
+            ylim: y-axis limit for plot
+            thres: plot a line for threshold if given
+            gap: can add in the gap between chromosomes
+            line: True/False to determine if the plot should be line or scatter
+    """
+    if plt_options is None:
+        plt_options = {}
+    genome_size_dict = pd.Series(genome_size_dict)
+    if "color" not in plt_options.keys():
+        plt_options['color'] = pd.Series( cb.diverging.PRGn_5.hex_colors[0], genome_size_dict.index )
+        plt_options['color'][1::2] = cb.diverging.PRGn_5.hex_colors[4]
+    if "pt_size" not in plt_options.keys():
+        plt_options['pt_size'] = 6
+    if "line" not in plt_options.keys():
+        plt_options['line'] = False
+    if "gap" not in plt_options.keys():
+        plt_options['gap'] = 10000000
+    if "ylim" not in plt_options.keys():
+        plt_options['ylim'] = bed_df.iloc[:,2].describe().loc[["min", "max"]].to_list()
+
+    if axs is None:
+        axs = plt.gca()
+    follow_x_index = 0
+    chr_tick_position = []
+    for ef_chr in genome_size_dict.iteritems():
+        t_chr_ix = np.where(bed_df.iloc[:,0] == ef_chr[0])[0]
+        if plt_options['line']:
+            
+            axs.plot(bed_df.iloc[t_chr_ix, 1].values + follow_x_index, bed_df.iloc[t_chr_ix,2], color = plt_options['color'][ef_chr[0]], **kwargs)
+        else:
+            axs.scatter(bed_df.iloc[t_chr_ix, 1].values + follow_x_index, bed_df.iloc[t_chr_ix,2], c = plt_options['color'][ef_chr[0]], s = plt_options['pt_size'], **kwargs)
+        chr_tick_position.append( follow_x_index + (ef_chr[1]/2) )
+        follow_x_index = follow_x_index + plt_options['gap'] + ef_chr[1]  ### adding gap and chromosome size
+        #q.axes.plot( [tair10.chr_inds[ix] + tair10.centro_mid[ix] + (gap * ix), tair10.chr_inds[ix] + tair10.centro_mid[ix] + (gap * ix)], ylim, '--', color = '#bdbdbd')
+        #q.axes.plot( [tair10.chr_inds[ix+1] + (gap * ix), tair10.chr_inds[ix+1] + (gap * ix)], [0, ylim], 'k-', color = '#bdbdbd')
+        # plt.xticks( np.arange(0, tair10.golden_chrlen[0], 10000000 ), [millify(ef) for ef in np.arange(0, tair10.golden_chrlen[0], 10000000 )] )
+    axs.set_xticks( chr_tick_position )
+    axs.set_xticklabels( genome_size_dict.index )
+    if "thres" in plt_options.keys():
+        axs.plot((0, follow_x_index ), (plt_options["thres"], plt_options["thres"]), "--", color = "gray")
+    axs.set_ylim( plt_options['ylim'] )
+    return(axs)
+
+
+
+
+def generate_heatmap_genomewide(score_df, tair10, plt_options = {}, axs = None, **kwargs):
+    """
+    Function to generate a genome wide heatmap
+        plots chromosomes separately
+        boxes for pericentromers
+
+    """
+    assert isinstance(score_df, pd.DataFrame), "provide a dataframe object"
+
+    if "lims" not in plt_options.keys():
+        plt_options['lims'] = (np.nanmin(score_df.values), np.nanmax(score_df.values))
+    if "xlabel" not in plt_options.keys():
+        plt_options['xlabel'] = ""
+    if "ylabel" not in plt_options.keys():
+        plt_options['ylabel'] = ""
+    if "title" not in plt_options.keys():
+        plt_options['title'] = ""
+    if "cmap" not in plt_options.keys():
+        plt_options['cmap'] = "Reds"
+    if "col_centro_line" not in plt_options.keys():
+        plt_options['col_centro_line'] = "#636363"
+    if "col_chr_line" not in plt_options.keys():
+        plt_options['col_chr_line'] = "#525252"
+
+    if axs is None:
+        axs = plt.gca()
+    
+    score_df_new = score_df.copy()
+    if pd.api.types.is_string_dtype( score_df_new.columns ):
+        score_df_new.columns = tair10.get_genomewide_inds( pd.Series(score_df_new.columns) )
+    else:
+        score_df_new.columns = score_df_new.columns.astype(int)
+    
+    chr_end_ix = np.searchsorted( score_df_new.columns.values, tair10.get_genomewide_inds( pd.DataFrame({"chr":tair10.chrs, "pos": tair10.golden_chrlen}) ), "right" )[0:-1]
+    chr_centro_mid_ix = np.searchsorted( score_df_new.columns.values, tair10.get_genomewide_inds( pd.DataFrame({"chr":tair10.chrs, "pos": tair10.centro_mid}) ), "right" )
+    chr_mid_ix = np.searchsorted( score_df_new.columns.values, tair10.get_genomewide_inds( pd.DataFrame({"chr":tair10.chrs, "pos": (np.array(tair10.golden_chrlen)/2).astype(int) }) ), "right" )
+    # score_df_new.insert(loc = int(e_chr_end_ix), column = "break" + str(e_chr_end_ix), value = np.nan)
+    
+    sns.heatmap(
+        score_df_new,
+        vmin=plt_options['lims'][0], 
+        vmax=plt_options['lims'][1], 
+        cmap=plt_options['cmap'],
+        ax = axs,
+        xticklabels=False,
+        yticklabels=False,
+        **kwargs
+        # cbar_kws=dict(use_gridspec=False,location="bottom")
+    )
+    axs.set_xlabel(plt_options['xlabel'])
+    axs.set_ylabel(plt_options['ylabel'])
+    axs.set_title(plt_options['title'])
+    
+    for e_chr_end_ix in chr_end_ix:
+        axs.plot( (e_chr_end_ix, e_chr_end_ix), (0,score_df_new.shape[0]), '-', c = plt_options['col_chr_line'] )
+        
+    for e_chr_pos_ix in chr_centro_mid_ix:
+        axs.plot( (e_chr_pos_ix, e_chr_pos_ix), (0,score_df_new.shape[0]), '--', c = plt_options['col_centro_line'] )
+    axs.set_xticks( chr_mid_ix )
+    axs.set_xticklabels( tair10.chrs )
 
 
 ## Make a PCA plot for SNPs using allel (scikit) package pca output
